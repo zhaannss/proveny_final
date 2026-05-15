@@ -733,10 +733,22 @@ async function initProctorDashboard() {
 
   document.getElementById("form-proctor-create").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const startTimeLocal = document.getElementById("proctor-start").value;
+    const endTimeLocal = document.getElementById("proctor-end").value;
+    
+    if (!startTimeLocal || !endTimeLocal) {
+      showToast("Please select both start and end times", "warning");
+      return;
+    }
+    
+    // Convert datetime-local to ISO 8601 by treating it as UTC
+    const startTime = new Date(startTimeLocal + "Z").toISOString();
+    const endTime = new Date(endTimeLocal + "Z").toISOString();
+    
     const body = {
       courseId: document.getElementById("proctor-course-id").value,
-      startTime: document.getElementById("proctor-start").value,
-      endTime: document.getElementById("proctor-end").value,
+      startTime,
+      endTime,
       networkIsolated: document.getElementById("proctor-network-isolated").checked,
     };
     const res = await apiFetch("/sessions", { method: "POST", body: JSON.stringify(body) });
