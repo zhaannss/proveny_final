@@ -27,8 +27,12 @@ function computeSophisticationFromAst(ast) {
     advancedTechniquesScore * 8 +
     namingVerbosityScore * 5;
 
+  // Baseline score: even simple, properly-written code gets minimum 10 points
+  const baselineBonus = 10;
+  const finalScore = clamp(score + baselineBonus, 0, 100);
+
   return {
-    sophisticationScore: clamp(score, 0, 100),
+    sophisticationScore: finalScore,
     metrics: {
       errorHandlingTier,
       architectureTier,

@@ -801,7 +801,7 @@ async function loadProctorSessions() {
 }
 
 async function updateSessionStatus(sessionId, action) {
-  const res = await apiFetch(`/sessions/${sessionId}/${action}`, { method: "PATCH" });
+  const res = await apiFetch(`/sessions/${sessionId}/${action}`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) { showToast(data.message || "Action failed", "error"); return; }
   showToast(`Session ${action === "activate" ? "activated" : "locked and sealed"}!`, "success");
