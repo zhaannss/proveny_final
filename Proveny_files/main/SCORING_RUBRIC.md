@@ -1,4 +1,4 @@
-# SylLab Sophistication Scoring Rubric (v1)
+# Proveny Sophistication Scoring Rubric (v1)
 
 This rubric is **rule-based** and deterministic (no ML / external APIs). It maps AST-derived signals into a **0–100** `sophisticationScore`.
 

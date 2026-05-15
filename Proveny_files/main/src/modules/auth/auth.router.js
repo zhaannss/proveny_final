@@ -6,6 +6,7 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  verifyEmailSchema,
 } = require("./auth.schema");
 const authService = require("./auth.service");
 const { authRequired } = require("../../middleware/auth");
@@ -26,12 +27,24 @@ function makeAuthRouter({ loginRateLimit, registerRateLimit, authGeneralRateLimi
     }
   });
 
-  router.get("/verify-email", authGeneralRateLimit, async (req, res, next) => {
+  async function handleVerifyEmail(token, res, next) {
     try {
-      const token = req.query.token;
       if (!token || typeof token !== "string") throw badRequest("Missing verification token");
       const result = await authService.verifyEmail({ token });
       return res.status(200).json(result);
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  router.get("/verify-email", authGeneralRateLimit, async (req, res, next) => {
+    return handleVerifyEmail(req.query.token, res, next);
+  });
+
+  router.post("/verify-email", authGeneralRateLimit, async (req, res, next) => {
+    try {
+      const { token } = verifyEmailSchema.parse(req.body);
+      return handleVerifyEmail(token, res, next);
     } catch (err) {
       return next(err);
     }

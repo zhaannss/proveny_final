@@ -88,10 +88,10 @@ async function register({ email, password, firstName, lastName }) {
     },
   });
 
-  const verifyUrl = `${env.APP_BASE_URL}/api/v1/auth/verify-email?token=${emailVerificationToken}`;
+  const verifyUrl = `${env.APP_BASE_URL}/?verify=${emailVerificationToken}`;
   await enqueueEmail({
     to: email,
-    subject: "Verify your SylLab account",
+    subject: "Verify your Proveny account",
     html: verificationEmailHtml({ firstName, verifyUrl }),
   });
 
@@ -133,10 +133,10 @@ async function resendVerification({ email }) {
     data: { emailVerificationToken, emailVerificationExpires },
   });
 
-  const verifyUrl = `${env.APP_BASE_URL}/api/v1/auth/verify-email?token=${emailVerificationToken}`;
+  const verifyUrl = `${env.APP_BASE_URL}/?verify=${emailVerificationToken}`;
   await enqueueEmail({
     to: email,
-    subject: "Verify your SylLab account - new link",
+    subject: "Verify your Proveny account - new link",
     html: verificationEmailHtml({ firstName: user.firstName, verifyUrl }),
   });
 
@@ -231,10 +231,10 @@ async function forgotPassword({ email }) {
     data: { passwordResetToken, passwordResetExpires },
   });
 
-  const resetUrl = `${env.APP_BASE_URL}/api/v1/auth/reset-password?token=${passwordResetToken}`;
+  const resetUrl = `${env.APP_BASE_URL}/?reset=${passwordResetToken}`;
   await enqueueEmail({
     to: email,
-    subject: "Reset your SylLab password",
+    subject: "Reset your Proveny password",
     html: passwordResetEmailHtml({ firstName: user.firstName, resetUrl }),
   });
 

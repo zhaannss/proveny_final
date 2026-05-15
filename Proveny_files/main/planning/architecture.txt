@@ -1,4 +1,4 @@
-SylLab — System Architecture
+Proveny — System Architecture
 Architecture & System Design Document | Version 1.0
 1. Tech Stack
 The following technology decisions were finalized after Week 1 evaluation of project requirements. Each choice is justified based on the forensic analysis nature of the platform.
@@ -10,7 +10,7 @@ Session Store: Active proctored session state. Key: session:proctored:{sessionId
 BullMQ Job Queue (Extra Credit): async AST analysis jobs. Queue name: submission-analysis
 2. Folder Structure
 The following ASCII tree represents the exact file layout to be implemented:
-syllab-backend/
+Proveny-backend/
 ├── src/
 │   ├── app.ts                    # Express app factory, middleware registration
 │   ├── server.ts                 # Entry point, starts HTTP server
@@ -106,7 +106,7 @@ All configuration is validated at startup using Zod. The application refuses to 
 NODE_ENV=development              # development | production | test
 PORT=3000
 # === Database ===
-DATABASE_URL=postgresql://syllab_user:password@localhost:5432/syllab_db
+DATABASE_URL=postgresql://Proveny_user:password@localhost:5432/Proveny_db
 # === Redis ===
 REDIS_URL=redis://localhost:6379
 # === JWT ===

@@ -1,19 +1,19 @@
 openapi: "3.0.3"
 info:
-  title: SylLab API
+  title: Proveny API
   description: |
     Anti-Plagiarism Code Forensics Platform API.
     Establishes proctored authentic baselines and detects AI-assisted code generation
     through sophistication delta analysis, technique genealogy validation, and cohort comparison.
   version: "1.0.0"
   contact:
-    name: SylLab Support
-    email: support@syllab.io
+    name: Proveny Support
+    email: support@Proveny.io
 
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
-  - url: https://api.syllab.io/v1
+  - url: https://api.Proveny.io/v1
     description: Production
 
 security:
@@ -181,7 +181,7 @@ paths:
   /auth/verify-email:
     get:
       tags: [Auth]
-      summary: Verify a newly registered account with an emailed token
+      summary: Verify account via emailed link (query token)
       security: []
       parameters:
         - name: token
@@ -189,6 +189,34 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Auth]
+      summary: Verify account with token in request body (frontend form)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
       responses:
         "200":
           description: Email verified
@@ -1128,6 +1156,46 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reports/audit:
+    get:
+      tags: [Reports]
+      summary: List recent audit log entries (Admin only)
+      responses:
+        "200":
+          description: Audit log page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        userId:
+                          type: string
+                          format: uuid
+                          nullable: true
+                        action:
+                          type: string
+                        resourceType:
+                          type: string
+                        resourceId:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
 

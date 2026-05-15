@@ -1,9 +1,9 @@
-SylLab
+Proveny
 Anti-Plagiarism Code Forensics Platform
 Features Specification Document
 Version 1.0 | Express (Node.js) + Prisma + PostgreSQL
 1. Project Overview
-SylLab is a forensic code analysis platform designed to detect AI-assisted code generation among students. Unlike traditional plagiarism checkers that detect copy-paste, SylLab establishes proctored authentic baselines during Week 1 and compares subsequent submissions against expected learning progression curves. The system flags anomalies such as 'impossible jumps' — advanced architectural patterns appearing without evidence of prerequisite intermediate patterns.
+Proveny is a forensic code analysis platform designed to detect AI-assisted code generation among students. Unlike traditional plagiarism checkers that detect copy-paste, Proveny establishes proctored authentic baselines during Week 1 and compares subsequent submissions against expected learning progression curves. The system flags anomalies such as 'impossible jumps' — advanced architectural patterns appearing without evidence of prerequisite intermediate patterns.
 2. User Roles & Actors
 2.1 Role Overview
 2.2 Student

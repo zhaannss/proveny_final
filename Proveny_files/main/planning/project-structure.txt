@@ -1,8 +1,8 @@
-SylLab — Anti-Plagiarism Code Forensics Platform
+Proveny — Anti-Plagiarism Code Forensics Platform
 Project File Structure (Express + TypeScript + Prisma + PostgreSQL + Redis)
 ==========================================================================
 
-syllab-backend/
+Proveny-backend/
 │
 ├── src/                                    # All application source code
 │   │

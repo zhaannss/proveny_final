@@ -1,25 +1,144 @@
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://Proveny_user:password@postgres:5432/Proveny_db
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET:-Proveny_jwt_secret_change_me_in_prod_32chars}
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-Proveny_refresh_secret_change_me_32chars}
+  JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+  SMTP_HOST: ${SMTP_HOST:-sandbox.smtp.mailtrap.io}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-noreply@Proveny.io}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+
 services:
+  # ─── Infrastructure ──────────────────────────────────────────
   postgres:
-    image: postgres:15
-    container_name: syllab-postgres
+    image: postgres:15-alpine
+    container_name: Proveny-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: syllab_user
+      POSTGRES_USER: Proveny_user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: syllab_db
+      POSTGRES_DB: Proveny_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Proveny_user -d Proveny_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:7
-    container_name: syllab-redis
+    image: redis:7-alpine
+    container_name: Proveny-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── Backend API ──────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Proveny-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      PORT: 3000
+      CORS_ALLOWED_ORIGINS: http://localhost:3001,http://frontend:80
+      AUTH_RATE_LIMIT_PER_MIN: ${AUTH_RATE_LIMIT_PER_MIN:-20}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3001}
+      EMAIL_VERIFY_TTL_HOURS: ${EMAIL_VERIFY_TTL_HOURS:-24}
+      PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-1}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@Proveny.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-AdminPass123!}
+    ports:
+      - "3000:3000"
+    command: >
+      sh -c "npx prisma migrate deploy && node scripts/seed.js && node src/server.js"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+
+  # ─── Frontend (Nginx SPA) ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: Proveny-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3001:80"
+
+  # ─── Background Workers ───────────────────────────────────────
+  worker-email:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Proveny-worker-email
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+    command: node src/workers/emailWorker.js
+
+  worker-analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Proveny-worker-analysis
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+    command: node src/workers/analysisWorker.js
+
+  worker-maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Proveny-worker-maintenance
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+    command: node src/workers/maintenanceWorker.js
 
 volumes:
   postgres_data:
   redis_data:
-

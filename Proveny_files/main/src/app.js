@@ -54,17 +54,23 @@ function createApp() {
     app.use(requestLogger());
   }
 
-  const redis = getRedis(env.REDIS_URL);
-  const authLimiter = createRateLimiter({
-    redis,
-    keyPrefix: "ratelimit:auth",
-    points: env.AUTH_RATE_LIMIT_PER_MIN,
-    durationSeconds: 60,
-  });
+  const noopRateLimit = (_req, _res, next) => next();
+  let loginRateLimit = noopRateLimit;
+  let registerRateLimit = noopRateLimit;
+  let authGeneralRateLimit = noopRateLimit;
 
-  const loginRateLimit = rateLimit(authLimiter, (req) => `login:${ipKey(req)}`);
-  const registerRateLimit = rateLimit(authLimiter, (req) => `register:${ipKey(req)}`);
-  const authGeneralRateLimit = rateLimit(authLimiter, (req) => `auth:${ipKey(req)}`);
+  if (env.NODE_ENV !== "test") {
+    const redis = getRedis(env.REDIS_URL);
+    const authLimiter = createRateLimiter({
+      redis,
+      keyPrefix: "ratelimit:auth",
+      points: env.AUTH_RATE_LIMIT_PER_MIN,
+      durationSeconds: 60,
+    });
+    loginRateLimit = rateLimit(authLimiter, (req) => `login:${ipKey(req)}`);
+    registerRateLimit = rateLimit(authLimiter, (req) => `register:${ipKey(req)}`);
+    authGeneralRateLimit = rateLimit(authLimiter, (req) => `auth:${ipKey(req)}`);
+  }
 
   const api = express.Router();
   api.use("/auth", makeAuthRouter({ loginRateLimit, registerRateLimit, authGeneralRateLimit }));

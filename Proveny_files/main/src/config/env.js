@@ -19,7 +19,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().default(""),
   SMTP_PASS: z.string().default(""),
-  SMTP_FROM: z.string().default("noreply@syllab.io"),
+  SMTP_FROM: z.string().default("noreply@Proveny.io"),
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
   EMAIL_VERIFY_TTL_HOURS: z.coerce.number().int().positive().default(24),
   PASSWORD_RESET_TTL_HOURS: z.coerce.number().int().positive().default(1),
@@ -42,9 +42,14 @@ function parseAllowedOrigins(raw) {
 
 const env = envSchema.parse(process.env);
 if (env.NODE_ENV === "production") {
-  const missing = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].filter((name) => !env[name]);
-  if (missing.length > 0) {
-    throw new Error(`Missing production email configuration: ${missing.join(", ")}`);
+  const required = ["SMTP_HOST", "SMTP_FROM"].filter((name) => !env[name]);
+  if (required.length > 0) {
+    throw new Error(`Missing production email configuration: ${required.join(", ")}`);
+  }
+  if (!env.SMTP_USER || !env.SMTP_PASS) {
+    console.warn(
+      "[env] SMTP_USER/SMTP_PASS not set — the API will boot, but the email worker cannot send until credentials are configured.",
+    );
   }
 }
 env.CORS_ALLOWED_ORIGINS = parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS);

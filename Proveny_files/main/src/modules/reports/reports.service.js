@@ -47,4 +47,22 @@ async function exportCourseReport({ actor, courseId, format }) {
   return { format: "csv", data: [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\r\n") };
 }
 
-module.exports = { getCohortReport, exportCourseReport };
+
+async function getAuditLogs({ actor }) {
+  const prisma = getPrisma();
+  const logs = await prisma.auditLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      userId: true,
+      action: true,
+      resourceType: true,
+      resourceId: true,
+      createdAt: true,
+    },
+  });
+  return { data: logs };
+}
+
+module.exports = { getCohortReport, exportCourseReport, getAuditLogs };

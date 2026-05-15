@@ -2,7 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { authRequired } = require("../../middleware/auth");
 const { requireRole } = require("../../middleware/rbac");
-const { getCohortReport, exportCourseReport } = require("./reports.service");
+const { getCohortReport, exportCourseReport, getAuditLogs } = require("./reports.service");
 
 const cohortQuerySchema = z.object({
   courseId: z.string().uuid(),
@@ -37,6 +37,15 @@ function makeReportsRouter() {
         return res.status(200).send(result.data);
       }
       return res.status(200).json(result.data);
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  router.get("/audit", requireRole("ADMIN"), async (req, res, next) => {
+    try {
+      const result = await getAuditLogs({ actor: req.user });
+      return res.status(200).json(result);
     } catch (e) {
       return next(e);
     }

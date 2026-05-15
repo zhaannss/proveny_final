@@ -3,6 +3,8 @@ const { sha256 } = require("../../utils/hash");
 const { scoreSourceCode } = require("../../engines/ast/sophisticationScorer");
 const { notFound, forbidden, conflict } = require("../../utils/httpErrors");
 const sessionsService = require("../sessions/sessions.service");
+const { enqueueEmail } = require("../../config/queue");
+const { baselineCaptureEmailHtml } = require("../../utils/emailTemplates");
 
 function toBaselineResponse(b) {
   return {
@@ -61,6 +63,26 @@ async function submitBaseline({ actor, sessionCode, source }) {
     });
     return created;
   });
+
+  const student = await prisma.user.findUnique({
+    where: { id: actor.id },
+    select: { email: true, firstName: true },
+  });
+  const course = await prisma.course.findUnique({
+    where: { id: session.courseId },
+    select: { code: true },
+  });
+  if (student && course) {
+    await enqueueEmail({
+      to: student.email,
+      subject: `[Proveny] Baseline code captured - ${course.code}`,
+      html: baselineCaptureEmailHtml({
+        firstName: student.firstName,
+        courseCode: course.code,
+        sophisticationScore: baseline.sophisticationScore,
+      }),
+    });
+  }
 
   return toBaselineResponse(baseline);
 }

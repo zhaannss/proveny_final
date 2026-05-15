@@ -1,7 +1,7 @@
-SylLab — Security Analysis
+Proveny — Security Analysis
 Threat Model & Security Architecture | Version 1.0
 1. STRIDE Threat Model
-STRIDE analysis covers the six threat categories: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, and Elevation of Privilege. Each threat is analyzed with concrete mitigations implemented in SylLab.
+STRIDE analysis covers the six threat categories: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, and Elevation of Privilege. Each threat is analyzed with concrete mitigations implemented in Proveny.
 1.1 JWT Tampering Prevention & Secret Rotation Plan
 Algorithm: HS256 (HMAC-SHA256) — asymmetric RS256 can be adopted for multi-service setup
 Access token TTL: 15 minutes — short enough to limit exposure if token is stolen

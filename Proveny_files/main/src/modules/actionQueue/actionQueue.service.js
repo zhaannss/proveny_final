@@ -17,6 +17,7 @@ function toQueueItem(ar) {
     analyzedAt: ar.analyzedAt,
     student: ar.submission.student,
     assignment: ar.submission.assignment,
+    course: ar.submission.assignment?.course || null,
   };
 }
 
@@ -51,7 +52,7 @@ async function getActionQueue({ actor, courseId, riskLevel, interviewOutcome, pa
         submission: {
           include: {
             student: { select: { id: true, firstName: true, lastName: true, email: true } },
-            assignment: { select: { id: true, title: true, weekNumber: true, courseId: true } },
+            assignment: { select: { id: true, title: true, weekNumber: true, courseId: true, course: { select: { id: true, name: true, code: true } } } },
           },
         },
       },

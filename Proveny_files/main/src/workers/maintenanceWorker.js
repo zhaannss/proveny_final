@@ -8,7 +8,7 @@ const STALE_REVIEW_JOB = "stale-flag-review";
 
 function staleReviewEmailHtml({ firstName, count }) {
   return `
-    <h2>SylLab stale review reminder</h2>
+    <h2>Proveny stale review reminder</h2>
     <p>Hello ${firstName},</p>
     <p>You have ${count} high-risk submissions pending review for more than seven days.</p>
   `;
@@ -59,7 +59,7 @@ async function processStaleFlagReview() {
   for (const { instructor, count } of byInstructor.values()) {
     await enqueueEmail({
       to: instructor.email,
-      subject: `[SylLab] ${count} stale high-risk submissions need review`,
+      subject: `[Proveny] ${count} stale high-risk submissions need review`,
       html: staleReviewEmailHtml({ firstName: instructor.firstName, count }),
     });
   }

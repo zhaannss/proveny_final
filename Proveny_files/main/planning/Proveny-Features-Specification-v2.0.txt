@@ -4,7 +4,7 @@ Features Specification Document
 Version 2.0  |  Express (Node.js) + Prisma + PostgreSQL + JPlag
 Updated with: Drift-Aware Profiling · Ultra-Low FPR Thresholds · JPlag Integration
 1. Project Overview
-SylLab is a forensic code analysis platform designed to detect AI-assisted code generation among students. Unlike traditional plagiarism checkers that detect copy-paste, SylLab establishes proctored authentic baselines during Week 1 and compares subsequent submissions against expected learning progression curves.
+Proveny is a forensic code analysis platform designed to detect AI-assisted code generation among students. Unlike traditional plagiarism checkers that detect copy-paste, Proveny establishes proctored authentic baselines during Week 1 and compares subsequent submissions against expected learning progression curves.
 The system flags anomalies such as 'impossible jumps' - advanced architectural patterns appearing without evidence of prerequisite intermediate patterns.
 Version 2.0 changes: Added Drift-Aware Student Profiling (source: Code Authorship Attribution survey, cyberlab.usask.ca), Ultra-Low FPR threshold calibration (source: Binoculars, arxiv 2401.12070), and replaced MOSS with JPlag for structural plagiarism detection.
 2. User Roles & Actors
@@ -105,7 +105,7 @@ System detects 'drift events': natural style changes vs. suspicious jumps
 SQL implementation (replaces fixed std_deviation):
 SELECT STDDEV(score) FROM submissions WHERE student_id = $1 ORDER BY week_number DESC LIMIT 3
 3.9 JPlag Structural Similarity Detection  ✦ NEW (replaces MOSS)
-Source: 'Code Authorship Attribution: Methods and Challenges' (cyberlab.usask.ca) and SylLab-Forensics research document - 'recent JPlag work emphasizes combining automated similarity with instructor review and enhancing resilience against automated obfuscation.' Referenced as [24] in research document.
+Source: 'Code Authorship Attribution: Methods and Challenges' (cyberlab.usask.ca) and Proveny-Forensics research document - 'recent JPlag work emphasizes combining automated similarity with instructor review and enhancing resilience against automated obfuscation.' Referenced as [24] in research document.
 JPlag replaces MOSS as the structural plagiarism detection layer. JPlag is open-source, supports JavaScript/TypeScript, and provides a REST API wrapper - easier to integrate than MOSS (no official API).
 On each batch submission deadline: trigger JPlag analysis across all submissions in a course+week
 JPlag compares token/parse-tree structure - not raw text - resistant to variable renaming

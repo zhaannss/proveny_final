@@ -1,4 +1,4 @@
-SylLab — Database Schema
+Proveny — Database Schema
 Database Design Document | Prisma + PostgreSQL 15+
 1. Entity Relationship Diagram (ASCII)
 The following diagram shows all tables, their relationships, and cardinalities:

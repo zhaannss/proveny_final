@@ -4,7 +4,7 @@ const { Worker } = require("bullmq");
 const { getPrisma } = require("../config/prisma");
 const { CONNECTION, enqueueEmail } = require("../config/queue");
 const { runEnsembleAnalysis } = require("../engines/ensemble/ensembleAnalyzer");
-const { submissionFlaggedEmailHtml } = require("../utils/emailTemplates");
+const { submissionFlaggedEmailHtml, escalationEmailHtml } = require("../utils/emailTemplates");
 
 async function processAnalysisJob(job) {
   const { submissionId } = job.data;
@@ -14,7 +14,7 @@ async function processAnalysisJob(job) {
     where: { id: submissionId },
     include: {
       assignment: { include: { course: true } },
-      student: { select: { id: true, email: true, firstName: true } },
+      student: { select: { id: true, email: true, firstName: true, lastName: true } },
     },
   });
   if (!submission) throw new Error(`Submission ${submissionId} not found`);
@@ -56,17 +56,32 @@ async function processAnalysisJob(job) {
       include: { instructor: { select: { email: true, firstName: true } } },
     });
     if (course?.instructor) {
-      await enqueueEmail({
-        to: course.instructor.email,
-        subject: `[SylLab] ${result.riskLevel} submission flagged - ${submission.assignment.title}`,
-        html: submissionFlaggedEmailHtml({
-          firstName: course.instructor.firstName,
-          riskLevel: result.riskLevel,
-          assignmentTitle: submission.assignment.title,
-          ensembleScore: result.ensembleScore,
-          submissionId,
-        }),
-      });
+      const studentName = `${submission.student.firstName} ${submission.student.lastName}`;
+      if (result.riskLevel === "CRITICAL") {
+        await enqueueEmail({
+          to: course.instructor.email,
+          subject: `[Proveny] CRITICAL Risk Escalation Alert - ${submission.assignment.title}`,
+          html: escalationEmailHtml({
+            instructorName: course.instructor.firstName,
+            studentName,
+            assignmentTitle: submission.assignment.title,
+            riskLevel: result.riskLevel,
+            ensembleScore: result.ensembleScore,
+          }),
+        });
+      } else {
+        await enqueueEmail({
+          to: course.instructor.email,
+          subject: `[Proveny] ${result.riskLevel} submission flagged - ${submission.assignment.title}`,
+          html: submissionFlaggedEmailHtml({
+            firstName: course.instructor.firstName,
+            riskLevel: result.riskLevel,
+            assignmentTitle: submission.assignment.title,
+            ensembleScore: result.ensembleScore,
+            submissionId,
+          }),
+        });
+      }
     }
   }
   return { analysisResultId: analysisResult.id, riskLevel: result.riskLevel };

@@ -1,19 +1,19 @@
 openapi: "3.0.3"
 info:
-  title: SylLab API
+  title: Proveny API
   description: |
     Anti-Plagiarism Code Forensics Platform API.
     Establishes proctored authentic baselines and detects AI-assisted code generation
     through sophistication delta analysis, technique genealogy validation, and cohort comparison.
   version: "1.0.0"
   contact:
-    name: SylLab Support
-    email: support@syllab.io
+    name: Proveny Support
+    email: support@Proveny.io
 
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
-  - url: https://api.syllab.io/v1
+  - url: https://api.Proveny.io/v1
     description: Production
 
 security:

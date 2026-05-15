@@ -83,7 +83,7 @@ async function recordOutcome({ actor, submissionId, outcome, notes }) {
 
   await enqueueEmail({
     to: submission.student.email,
-    subject: `[SylLab] Your interview outcome - ${submission.assignment.title}`,
+    subject: `[Proveny] Your interview outcome - ${submission.assignment.title}`,
     html: interviewOutcomeEmailHtml({
       firstName: submission.student.firstName,
       outcome,

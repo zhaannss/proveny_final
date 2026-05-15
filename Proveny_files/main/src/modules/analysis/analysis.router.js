@@ -75,6 +75,7 @@ function makeAnalysisRouter() {
       const expectedWeeklyIncrement = (expectedScore - baselineScore) / Math.max(1, data.weekNumber - 1);
       const increment = expectedWeeklyIncrement === 0 ? 5 : expectedWeeklyIncrement;
       const compressedWeeks = (currentScore - baselineScore) / increment;
+      const escalation_flag = trajectoryZScore >= 2.5 || compressedWeeks >= 3.0;
 
       return res.status(200).json({
         studentId: data.studentId,
@@ -85,6 +86,7 @@ function makeAnalysisRouter() {
         currentScore,
         compressedWeeks: Number(compressedWeeks.toFixed(4)),
         trajectoryZScore: Number(trajectoryZScore.toFixed(4)),
+        escalation_flag,
       });
     } catch (e) {
       return next(e);

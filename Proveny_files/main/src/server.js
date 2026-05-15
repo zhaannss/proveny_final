@@ -11,7 +11,7 @@ async function main() {
   const server = http.createServer(app);
 
   server.listen(env.PORT, () => {
-    console.log(`SylLab API listening on port ${env.PORT}`);
+    console.log(`Proveny API listening on port ${env.PORT}`);
   });
 
   async function shutdown(signal) {

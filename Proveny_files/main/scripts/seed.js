@@ -6,7 +6,7 @@ const { getPrisma, disconnectPrisma } = require("../src/config/prisma");
 async function main() {
   const prisma = getPrisma();
 
-  const email = process.env.SEED_ADMIN_EMAIL || "admin@syllab.local";
+  const email = process.env.SEED_ADMIN_EMAIL || "admin@Proveny.local";
   const password = process.env.SEED_ADMIN_PASSWORD || "AdminPass123!";
 
   const existing = await prisma.user.findUnique({ where: { email } });
