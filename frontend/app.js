@@ -23,6 +23,13 @@ function showToast(message, type = "info") {
   }, 4000);
 }
 
+function formatApiError(data, fallback = "Request failed") {
+  if (data?.details?.length) {
+    return data.details.map((d) => `${d.field}: ${d.message}`).join("; ");
+  }
+  return data?.message || fallback;
+}
+
 // ============================================================
 // TOKEN MANAGEMENT
 // ============================================================
@@ -67,8 +74,7 @@ async function apiFetch(path, options = {}, retried = false) {
     });
     if (!refreshRes.ok) { Auth.clearSession(); navigateToAuth(); return null; }
     const data = await refreshRes.json();
-    const user = Auth.getUser();
-    Auth.setSession(data.accessToken, data.refreshToken, user);
+    Auth.setSession(data.accessToken, data.refreshToken, data.user || Auth.getUser());
     return apiFetch(path, options, true);
   }
 
@@ -91,7 +97,7 @@ async function apiUpload(path, formData, retried = false) {
     });
     if (!refreshRes.ok) { Auth.clearSession(); navigateToAuth(); return null; }
     const data = await refreshRes.json();
-    Auth.setSession(data.accessToken, data.refreshToken, Auth.getUser());
+    Auth.setSession(data.accessToken, data.refreshToken, data.user || Auth.getUser());
     return apiUpload(path, formData, true);
   }
   return res;
@@ -129,7 +135,8 @@ function navigateToAuth() {
 function navigateToDashboard(user) {
   const header = document.getElementById("app-header");
   header.classList.remove("hidden");
-  document.getElementById("user-display-name").textContent = `${user.firstName} ${user.lastName}`;
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  document.getElementById("user-display-name").textContent = displayName || user.email || "User";
   document.getElementById("user-display-role").textContent = user.role;
 
   const roleViewMap = {
@@ -477,6 +484,37 @@ async function loadInstructorCourses() {
   if (!res || !res.ok) return;
   const data = await res.json();
   instructorCourses = data.data || data || [];
+  renderInstructorCoursesList();
+}
+
+function renderInstructorCoursesList() {
+  const list = document.getElementById("inst-courses-list");
+  if (!list) return;
+  if (!instructorCourses.length) {
+    list.innerHTML = `<p class="text-muted">No courses yet. Create one on the left.</p>`;
+    return;
+  }
+  list.innerHTML = instructorCourses
+    .map(
+      (c) => `<div class="list-item" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+        <span><strong>${c.name}</strong> <span class="text-muted">(${c.code})</span></span>
+        <button type="button" class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.75rem" onclick="deleteInstructorCourse('${c.id}', '${c.name.replace(/'/g, "\\'")}')">Delete</button>
+      </div>`,
+    )
+    .join("");
+}
+
+async function deleteInstructorCourse(courseId, courseName) {
+  if (!confirm(`Delete course "${courseName}"? Only empty courses (no baselines/submissions) can be removed.`)) return;
+  const res = await apiFetch(`/courses/${courseId}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.message || "Delete failed", "error");
+    return;
+  }
+  showToast(data.message || "Course deleted", "success");
+  await loadInstructorCourses();
+  populateInstructorDropdowns();
 }
 
 function populateInstructorDropdowns() {
@@ -493,7 +531,7 @@ function populateInstructorDropdowns() {
 }
 
 async function loadInstructorStudents() {
-  const res = await apiFetch("/users?role=STUDENT");
+  const res = await apiFetch("/courses/students?limit=100");
   if (!res || !res.ok) return;
   const data = await res.json();
   instructorStudents = data.data || data || [];
@@ -525,20 +563,12 @@ document.getElementById("form-inst-enroll").addEventListener("submit", async (e)
   const courseId = document.getElementById("enroll-course-id").value;
   const email = document.getElementById("enroll-student-email").value.trim();
 
-  // First find student by email
-  const userRes = await apiFetch(`/users?email=${encodeURIComponent(email)}`);
-  if (!userRes || !userRes.ok) { showToast("Could not find user", "error"); return; }
-  const userData = await userRes.json();
-  const students = userData.data || userData || [];
-  if (!students.length) { showToast("No user found with that email", "error"); return; }
-  const studentId = students[0].id;
-
-  const res = await apiFetch(`/courses/${courseId}/enrollments`, {
+  const res = await apiFetch(`/courses/${courseId}/enroll`, {
     method: "POST",
-    body: JSON.stringify({ studentId }),
+    body: JSON.stringify({ email }),
   });
   const data = await res.json();
-  if (!res.ok) { showToast(data.message || "Enrollment failed", "error"); return; }
+  if (!res.ok) { showToast(formatApiError(data, "Enrollment failed"), "error"); return; }
   showToast("Student enrolled successfully!", "success");
   e.target.reset();
 });
@@ -546,16 +576,21 @@ document.getElementById("form-inst-enroll").addEventListener("submit", async (e)
 // Create Assignment
 document.getElementById("form-inst-create-assignment").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const dueRaw = document.getElementById("assign-duedate").value;
+  if (!dueRaw) { showToast("Due date is required", "error"); return; }
+  const dueDate = new Date(dueRaw).toISOString();
+  if (Number.isNaN(Date.parse(dueDate))) { showToast("Invalid due date", "error"); return; }
+
   const body = {
     courseId: document.getElementById("assign-course-id").value,
     title: document.getElementById("assign-title").value.trim(),
-    weekNumber: parseInt(document.getElementById("assign-week").value),
+    weekNumber: parseInt(document.getElementById("assign-week").value, 10),
     expectedScore: parseFloat(document.getElementById("assign-expected").value),
-    dueDate: document.getElementById("assign-duedate").value,
+    dueDate,
   };
   const res = await apiFetch("/assignments", { method: "POST", body: JSON.stringify(body) });
   const data = await res.json();
-  if (!res.ok) { showToast(data.message || "Create assignment failed", "error"); return; }
+  if (!res.ok) { showToast(formatApiError(data, "Create assignment failed"), "error"); return; }
   showToast(`Assignment "${body.title}" created!`, "success");
   e.target.reset();
 });
@@ -719,6 +754,10 @@ async function loadProctorCourses() {
   const data = await res.json();
   const courses = data.data || data || [];
   const sel = document.getElementById("proctor-course-id");
+  if (!courses.length) {
+    sel.innerHTML = `<option value="">No courses — instructor must create a course first</option>`;
+    return;
+  }
   sel.innerHTML = courses.map((c) => `<option value="${c.id}">${c.name} (${c.code})</option>`).join("");
 }
 
@@ -760,61 +799,258 @@ async function updateSessionStatus(sessionId, action) {
 // ============================================================
 // ========== ADMIN DASHBOARD ==========
 // ============================================================
+let adminUsers = [];
+let adminCourses = [];
+let adminInstructors = [];
+
+function resetAdminUserForm() {
+  document.getElementById("admin-user-id").value = "";
+  document.getElementById("form-admin-user").reset();
+  document.getElementById("admin-user-form-title").textContent = "Create user";
+  document.getElementById("admin-user-submit-btn").textContent = "Create";
+  document.getElementById("admin-email").disabled = false;
+  document.getElementById("admin-password").required = true;
+  document.getElementById("admin-user-active-group").classList.add("hidden");
+  document.getElementById("admin-user-cancel-edit").classList.add("hidden");
+}
+
+function resetAdminCourseForm() {
+  document.getElementById("admin-course-id").value = "";
+  document.getElementById("form-admin-course").reset();
+  document.getElementById("admin-course-form-title").textContent = "Create course";
+  document.getElementById("admin-course-submit-btn").textContent = "Create";
+  document.getElementById("admin-course-code-group").classList.remove("hidden");
+  document.getElementById("admin-course-code").required = true;
+  document.getElementById("admin-course-active-group").classList.add("hidden");
+  document.getElementById("admin-course-cancel-edit").classList.add("hidden");
+  populateAdminInstructorSelect();
+}
+
 async function initAdminDashboard() {
   initSideTabs("#view-admin .instructor-container");
+  await loadAdminInstructors();
   await loadAdminUsers();
+  await loadAdminCourses();
   await loadAuditLogs();
 
-  document.getElementById("form-admin-create-user").addEventListener("submit", async (e) => {
+  document.getElementById("admin-user-cancel-edit").addEventListener("click", resetAdminUserForm);
+  document.getElementById("admin-course-cancel-edit").addEventListener("click", resetAdminCourseForm);
+
+  document.getElementById("form-admin-user").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const body = {
-      firstName: document.getElementById("admin-first-name").value.trim(),
-      lastName: document.getElementById("admin-last-name").value.trim(),
-      email: document.getElementById("admin-email").value.trim(),
-      password: document.getElementById("admin-password").value,
-      role: document.getElementById("admin-role").value,
-    };
-    const res = await apiFetch("/users", { method: "POST", body: JSON.stringify(body) });
+    const userId = document.getElementById("admin-user-id").value;
+    const firstName = document.getElementById("admin-first-name").value.trim();
+    const lastName = document.getElementById("admin-last-name").value.trim();
+    const email = document.getElementById("admin-email").value.trim();
+    const password = document.getElementById("admin-password").value;
+    const role = document.getElementById("admin-role").value;
+
+    if (userId) {
+      const body = { firstName, lastName, role, isActive: document.getElementById("admin-user-active").checked };
+      const res = await apiFetch(`/users/${userId}`, { method: "PATCH", body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message || "Update failed", "error"); return; }
+      showToast("User updated", "success");
+      resetAdminUserForm();
+      await loadAdminUsers();
+      await loadAdminInstructors();
+      return;
+    }
+
+    if (!password) { showToast("Password is required for new users", "warning"); return; }
+    const res = await apiFetch("/users", {
+      method: "POST",
+      body: JSON.stringify({ firstName, lastName, email, password, role }),
+    });
     const data = await res.json();
-    if (!res.ok) { showToast(data.message || "User creation failed", "error"); return; }
-    showToast(`User ${body.email} provisioned!`, "success");
-    e.target.reset();
+    if (!res.ok) { showToast(data.message || "Create failed", "error"); return; }
+    showToast(`User ${email} created`, "success");
+    resetAdminUserForm();
     await loadAdminUsers();
+    await loadAdminInstructors();
+  });
+
+  document.getElementById("form-admin-course").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const courseId = document.getElementById("admin-course-id").value;
+    const name = document.getElementById("admin-course-name").value.trim();
+    let weeklyTargets;
+    try {
+      weeklyTargets = JSON.parse(document.getElementById("admin-course-targets").value);
+    } catch {
+      showToast("Invalid JSON for weekly targets", "error");
+      return;
+    }
+
+    if (courseId) {
+      const body = {
+        name,
+        weeklyTargets,
+        isActive: document.getElementById("admin-course-active").checked,
+        instructorId: document.getElementById("admin-course-instructor").value,
+      };
+      const res = await apiFetch(`/courses/${courseId}`, { method: "PATCH", body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message || "Update failed", "error"); return; }
+      showToast("Course updated", "success");
+      resetAdminCourseForm();
+      await loadAdminCourses();
+      return;
+    }
+
+    const code = document.getElementById("admin-course-code").value.trim();
+    const instructorId = document.getElementById("admin-course-instructor").value;
+    const res = await apiFetch("/courses", {
+      method: "POST",
+      body: JSON.stringify({ name, code, weeklyTargets, instructorId }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.message || "Create failed", "error"); return; }
+    showToast(`Course ${code} created`, "success");
+    resetAdminCourseForm();
+    await loadAdminCourses();
   });
 }
 
+async function loadAdminInstructors() {
+  adminInstructors = [];
+  for (const role of ["INSTRUCTOR", "ADMIN"]) {
+    const res = await apiFetch(`/users?role=${role}&limit=100`);
+    if (!res || !res.ok) continue;
+    const data = await res.json();
+    for (const u of data.data || []) {
+      if (!adminInstructors.some((x) => x.id === u.id)) adminInstructors.push(u);
+    }
+  }
+  populateAdminInstructorSelect();
+}
+
+function populateAdminInstructorSelect() {
+  const sel = document.getElementById("admin-course-instructor");
+  if (!sel) return;
+  if (!adminInstructors.length) {
+    sel.innerHTML = `<option value="">No instructors — create INSTRUCTOR user first</option>`;
+    return;
+  }
+  sel.innerHTML = adminInstructors
+    .map((u) => `<option value="${u.id}">${u.firstName} ${u.lastName} (${u.email})</option>`)
+    .join("");
+}
+
 async function loadAdminUsers() {
-  const res = await apiFetch("/users");
+  const res = await apiFetch("/users?limit=100");
   if (!res || !res.ok) return;
   const data = await res.json();
-  const users = data.data || data || [];
+  adminUsers = data.data || data || [];
   const tbody = document.getElementById("admin-users-rows");
-  tbody.innerHTML = users.map((u) => {
+  if (!adminUsers.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No users</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = adminUsers.map((u) => {
     const roleBadge = { STUDENT: "badge-monitor", INSTRUCTOR: "badge-flagged", PROCTOR: "badge-normal", ADMIN: "badge-critical" }[u.role] || "badge-secondary";
     return `<tr>
       <td>${u.firstName} ${u.lastName}</td>
       <td style="font-size:0.9rem">${u.email}</td>
       <td><span class="badge ${roleBadge}">${u.role}</span></td>
       <td><span class="badge ${u.isActive ? "badge-normal" : "badge-critical"}">${u.isActive ? "Active" : "Disabled"}</span></td>
-      <td>
-        ${u.isActive
-          ? `<button class="btn btn-secondary" style="padding:0.35rem 0.75rem;font-size:0.8rem" onclick="toggleUserStatus('${u.id}', false)">Disable</button>`
-          : `<button class="btn btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem" onclick="toggleUserStatus('${u.id}', true)">Enable</button>`}
+      <td style="display:flex;gap:0.35rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.75rem" onclick="editAdminUser('${u.id}')">Edit</button>
+        <button class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.75rem" onclick="deleteAdminUser('${u.id}', '${u.email.replace(/'/g, "\\'")}')">Delete</button>
       </td>
     </tr>`;
   }).join("");
 }
 
-async function toggleUserStatus(userId, activate) {
-  const res = await apiFetch(`/users/${userId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ isActive: activate }),
-  });
-  const data = await res.json();
-  if (!res.ok) { showToast(data.message || "Failed", "error"); return; }
-  showToast(`User ${activate ? "enabled" : "disabled"}`, "success");
-  await loadAdminUsers();
+function editAdminUser(userId) {
+  const u = adminUsers.find((x) => x.id === userId);
+  if (!u) return;
+  document.getElementById("admin-user-id").value = u.id;
+  document.getElementById("admin-first-name").value = u.firstName;
+  document.getElementById("admin-last-name").value = u.lastName;
+  document.getElementById("admin-email").value = u.email;
+  document.getElementById("admin-email").disabled = true;
+  document.getElementById("admin-password").value = "";
+  document.getElementById("admin-password").required = false;
+  document.getElementById("admin-role").value = u.role;
+  document.getElementById("admin-user-active").checked = u.isActive;
+  document.getElementById("admin-user-form-title").textContent = "Edit user";
+  document.getElementById("admin-user-submit-btn").textContent = "Save";
+  document.getElementById("admin-user-active-group").classList.remove("hidden");
+  document.getElementById("admin-user-cancel-edit").classList.remove("hidden");
+  document.getElementById("admin-tab-users").scrollIntoView({ behavior: "smooth" });
 }
+
+async function deleteAdminUser(userId, email) {
+  if (!confirm(`Delete user ${email}? Users with course data will be deactivated instead.`)) return;
+  const res = await apiFetch(`/users/${userId}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.message || "Delete failed", "error"); return; }
+  showToast(data.message || "User removed", "success");
+  resetAdminUserForm();
+  await loadAdminUsers();
+  await loadAdminInstructors();
+}
+
+async function loadAdminCourses() {
+  const res = await apiFetch("/courses?limit=100");
+  if (!res || !res.ok) return;
+  const data = await res.json();
+  adminCourses = data.data || data || [];
+  const tbody = document.getElementById("admin-courses-rows");
+  if (!adminCourses.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No courses</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = adminCourses.map((c) => {
+    const instr = c.instructor
+      ? `${c.instructor.firstName} ${c.instructor.lastName}`
+      : (c.instructorId || "—").slice(0, 8) + "…";
+    return `<tr>
+      <td>${c.name}</td>
+      <td><code>${c.code}</code></td>
+      <td style="font-size:0.85rem">${instr}</td>
+      <td><span class="badge ${c.isActive ? "badge-normal" : "badge-critical"}">${c.isActive ? "Active" : "Inactive"}</span></td>
+      <td style="display:flex;gap:0.35rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.75rem" onclick="editAdminCourse('${c.id}')">Edit</button>
+        <button class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.75rem" onclick="deleteAdminCourse('${c.id}', '${c.code.replace(/'/g, "\\'")}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function editAdminCourse(courseId) {
+  const c = adminCourses.find((x) => x.id === courseId);
+  if (!c) return;
+  document.getElementById("admin-course-id").value = c.id;
+  document.getElementById("admin-course-name").value = c.name;
+  document.getElementById("admin-course-code").value = c.code;
+  document.getElementById("admin-course-code-group").classList.add("hidden");
+  document.getElementById("admin-course-code").required = false;
+  document.getElementById("admin-course-targets").value = JSON.stringify(c.weeklyTargets, null, 2);
+  document.getElementById("admin-course-instructor").value = c.instructorId;
+  document.getElementById("admin-course-active").checked = c.isActive;
+  document.getElementById("admin-course-form-title").textContent = "Edit course";
+  document.getElementById("admin-course-submit-btn").textContent = "Save";
+  document.getElementById("admin-course-active-group").classList.remove("hidden");
+  document.getElementById("admin-course-cancel-edit").classList.remove("hidden");
+  document.getElementById("admin-tab-courses").scrollIntoView({ behavior: "smooth" });
+}
+
+async function deleteAdminCourse(courseId, code) {
+  if (!confirm(`Delete course ${code}? Only empty courses (no baselines/submissions) can be removed.`)) return;
+  const res = await apiFetch(`/courses/${courseId}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.message || "Delete failed", "error"); return; }
+  showToast(data.message || "Course deleted", "success");
+  resetAdminCourseForm();
+  await loadAdminCourses();
+}
+
+window.editAdminUser = editAdminUser;
+window.deleteAdminUser = deleteAdminUser;
+window.editAdminCourse = editAdminCourse;
+window.deleteAdminCourse = deleteAdminCourse;
 
 async function loadAuditLogs() {
   const res = await apiFetch("/reports/audit");

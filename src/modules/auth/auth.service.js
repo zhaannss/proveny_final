@@ -164,7 +164,13 @@ async function login({ email, password }) {
     accessToken,
     refreshToken,
     expiresIn: ACCESS_EXPIRES_SECONDS,
-    user: { id: user.id, email: user.email, role: user.role },
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    },
   };
 }
 
@@ -208,7 +214,13 @@ async function refresh({ refreshToken }) {
     accessToken,
     refreshToken: newRefreshToken,
     expiresIn: ACCESS_EXPIRES_SECONDS,
-    user: { id: userId, email: user.email, role },
+    user: {
+      id: userId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role,
+    },
   };
 }
 

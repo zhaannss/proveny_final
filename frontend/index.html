@@ -336,6 +336,13 @@
                                         </div>
                                         <button type="submit" class="btn btn-primary">Create Course</button>
                                     </form>
+                                    <p class="tab-desc" style="margin-top:0.75rem">Код курса: формат <code>CS101-2026</code> (2–6 букв, 3 цифры, дефис, 4 цифры).</p>
+                                </div>
+                                <div class="col-panel">
+                                    <h3>Your Courses</h3>
+                                    <div id="inst-courses-list" class="sidebar-list">
+                                        <p class="text-muted">Loading courses...</p>
+                                    </div>
                                 </div>
                                 <div class="col-panel">
                                     <h3>Enroll Student</h3>
@@ -662,19 +669,21 @@
             <section id="view-admin" class="view-section hidden">
                 <div class="instructor-container">
                     <div class="instructor-tabs glass">
-                        <button class="side-tab-btn active" data-target="admin-tab-users"><i data-lucide="shield"></i> Accounts Directory</button>
-                        <button class="side-tab-btn" data-target="admin-tab-audit"><i data-lucide="file-text"></i> System Audit Logs</button>
+                        <button class="side-tab-btn active" data-target="admin-tab-users"><i data-lucide="shield"></i> Users</button>
+                        <button class="side-tab-btn" data-target="admin-tab-courses"><i data-lucide="book-open"></i> Courses</button>
+                        <button class="side-tab-btn" data-target="admin-tab-audit"><i data-lucide="file-text"></i> Audit Logs</button>
                     </div>
                     
                     <div class="instructor-content glass">
                         <!-- Accounts Management -->
                         <div id="admin-tab-users" class="inst-panel">
-                            <h2>Global User Registry</h2>
+                            <h2>Users (CRUD)</h2>
                             
                             <div class="two-column-layout">
                                 <div class="col-panel">
-                                    <h3>Provision New User Profile</h3>
-                                    <form id="form-admin-create-user" class="standard-form">
+                                    <h3 id="admin-user-form-title">Create user</h3>
+                                    <form id="form-admin-user" class="standard-form">
+                                        <input type="hidden" id="admin-user-id" value="">
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label for="admin-first-name">First Name</label>
@@ -686,16 +695,16 @@
                                             </div>
                                         </div>
                                         <div class="form-group">
-                                            <label for="admin-email">Email Address</label>
-                                            <input type="email" id="admin-email" required placeholder="admin@Proveny.local">
+                                            <label for="admin-email">Email</label>
+                                            <input type="email" id="admin-email" required placeholder="user@university.edu">
                                         </div>
                                         <div class="form-row">
                                             <div class="form-group">
-                                                <label for="admin-password">Credentials Password</label>
-                                                <input type="password" id="admin-password" required placeholder="Pass123!">
+                                                <label for="admin-password">Password</label>
+                                                <input type="password" id="admin-password" placeholder="Required for new user">
                                             </div>
                                             <div class="form-group">
-                                                <label for="admin-role">System Authorization Role</label>
+                                                <label for="admin-role">Role</label>
                                                 <select id="admin-role" class="form-select" required>
                                                     <option value="STUDENT">STUDENT</option>
                                                     <option value="INSTRUCTOR">INSTRUCTOR</option>
@@ -704,12 +713,18 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-primary">Create User Account</button>
+                                        <div class="form-group hidden" id="admin-user-active-group">
+                                            <label><input type="checkbox" id="admin-user-active" checked> Active account</label>
+                                        </div>
+                                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                                            <button type="submit" class="btn btn-primary" id="admin-user-submit-btn">Create</button>
+                                            <button type="button" class="btn btn-secondary hidden" id="admin-user-cancel-edit">Cancel</button>
+                                        </div>
                                     </form>
                                 </div>
                                 
                                 <div class="col-panel flex-grow">
-                                    <h3>User Directories</h3>
+                                    <h3>All users</h3>
                                     <div class="table-responsive">
                                         <table class="data-table">
                                             <thead>
@@ -718,11 +733,66 @@
                                                     <th>Email</th>
                                                     <th>Role</th>
                                                     <th>Status</th>
-                                                    <th>Action</th>
+                                                    <th>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="admin-users-rows">
-                                                <tr><td colspan="5" class="text-center">Loading registry...</td></tr>
+                                                <tr><td colspan="5" class="text-center">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="admin-tab-courses" class="inst-panel hidden">
+                            <h2>Courses (CRUD)</h2>
+                            <div class="two-column-layout">
+                                <div class="col-panel">
+                                    <h3 id="admin-course-form-title">Create course</h3>
+                                    <form id="form-admin-course" class="standard-form">
+                                        <input type="hidden" id="admin-course-id" value="">
+                                        <div class="form-group">
+                                            <label for="admin-course-name">Course name</label>
+                                            <input type="text" id="admin-course-name" required placeholder="Computer Science 101">
+                                        </div>
+                                        <div class="form-group" id="admin-course-code-group">
+                                            <label for="admin-course-code">Course code</label>
+                                            <input type="text" id="admin-course-code" required placeholder="CS101-2026">
+                                            <p class="tab-desc">Format: CS101-2026</p>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="admin-course-instructor">Instructor</label>
+                                            <select id="admin-course-instructor" class="form-select" required></select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="admin-course-targets">Weekly targets (JSON)</label>
+                                            <textarea id="admin-course-targets" required rows="3">{"1": 15, "2": 18, "3": 22, "4": 26}</textarea>
+                                        </div>
+                                        <div class="form-group hidden" id="admin-course-active-group">
+                                            <label><input type="checkbox" id="admin-course-active" checked> Active course</label>
+                                        </div>
+                                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                                            <button type="submit" class="btn btn-primary" id="admin-course-submit-btn">Create</button>
+                                            <button type="button" class="btn btn-secondary hidden" id="admin-course-cancel-edit">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="col-panel flex-grow">
+                                    <h3>All courses</h3>
+                                    <div class="table-responsive">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Code</th>
+                                                    <th>Instructor</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="admin-courses-rows">
+                                                <tr><td colspan="5" class="text-center">Loading...</td></tr>
                                             </tbody>
                                         </table>
                                     </div>

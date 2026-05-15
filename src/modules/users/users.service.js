@@ -1,6 +1,9 @@
 const bcrypt = require("bcrypt");
 const { getPrisma } = require("../../config/prisma");
-const { conflict, notFound } = require("../../utils/httpErrors");
+const { getRedis } = require("../../config/redis");
+const { env } = require("../../config/env");
+const { conflict, forbidden, notFound } = require("../../utils/httpErrors");
+const { revokeAllRefreshTokensForUser } = require("../auth/auth.service");
 
 function toUserResponse(u) {
   return {
@@ -73,5 +76,36 @@ async function updateUser(userId, patch) {
   return toUserResponse(user);
 }
 
-module.exports = { createUser, listUsers, getUserById, updateUser };
+async function deleteUser({ actor, userId }) {
+  const prisma = getPrisma();
+  if (actor.id === userId) throw forbidden("Cannot delete your own account");
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw notFound(`User with id '${userId}' not found`);
+
+  const [baselines, submissions, enrollments, sessions, courses] = await Promise.all([
+    prisma.baseline.count({ where: { studentId: userId } }),
+    prisma.submission.count({ where: { studentId: userId } }),
+    prisma.courseEnrollment.count({ where: { studentId: userId } }),
+    prisma.proctoredSession.count({ where: { proctorId: userId } }),
+    prisma.course.count({ where: { instructorId: userId } }),
+  ]);
+
+  const hasRecords = baselines + submissions + enrollments + sessions + courses > 0;
+  const redis = getRedis(env.REDIS_URL);
+  await revokeAllRefreshTokensForUser({ redis, userId });
+
+  if (hasRecords) {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+    return { message: "User deactivated (related records preserved)", user: toUserResponse(updated) };
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+  return { message: "User deleted successfully" };
+}
+
+module.exports = { createUser, listUsers, getUserById, updateUser, deleteUser };
 

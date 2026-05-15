@@ -7,5 +7,12 @@ const createCourseSchema = z.object({
   instructorId: z.string().uuid().optional(),
 });
 
-module.exports = { createCourseSchema };
+const updateCourseSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  weeklyTargets: z.record(z.string(), z.number().min(0).max(100)).optional(),
+  isActive: z.boolean().optional(),
+  instructorId: z.string().uuid().optional(),
+});
+
+module.exports = { createCourseSchema, updateCourseSchema };
 

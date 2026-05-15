@@ -64,6 +64,17 @@ function makeUsersRouter() {
     }
   });
 
+  router.delete("/:userId", async (req, res, next) => {
+    try {
+      const userId = req.params.userId;
+      if (!userId) throw badRequest("userId required");
+      const result = await usersService.deleteUser({ actor: req.user, userId });
+      return res.status(200).json(result);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
   return router;
 }
 
