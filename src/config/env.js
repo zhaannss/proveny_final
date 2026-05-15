@@ -1,18 +1,33 @@
 const { z } = require("zod");
 
-// Хелпер для числовых переменных с дефолтными значениями
+// Наш новый "бронированный" хелпер
 const numericDefault = (defaultValue) => 
   z.preprocess(
     (val) => {
-      // Если переменная отсутствует или это пустая строка, возвращаем undefined, чтобы сработал .default()
-      if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) {
+      // Если переменной вообще нет
+      if (val === undefined || val === null) {
         return undefined;
       }
-      const parsed = Number(val);
-      return isNaN(parsed) ? val : parsed; // отдаем как есть, если это реальный NaN, чтобы Zod выдал красивую ошибку
+      
+      // Очищаем от случайных пробелов, если это строка
+      const cleaned = typeof val === "string" ? val.trim() : val;
+      
+      // Если Dokku передал пустую строку "" — сработает дефолт
+      if (cleaned === "") {
+        return undefined;
+      }
+      
+      const parsed = Number(cleaned);
+      
+      // ЕСЛИ ВЕРНУЛСЯ NaN (пришел текст) ИЛИ ЧИСЛО <= 0
+      // Мы не падаем, а просто тихо берем дефолтное значение!
+      if (isNaN(parsed) || parsed <= 0) {
+        return defaultValue;
+      }
+      
+      return parsed;
     },
-    z.number().positive() // Сразу проверяет, что число > 0 (заменяет ваши проверки if внизу)
-     .default(defaultValue)
+    z.number().positive().default(defaultValue)
   );
 
 const envSchema = z.object({
@@ -37,14 +52,12 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default("noreply@Proveny.io"),
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
   EMAIL_VERIFY_TTL_HOURS: numericDefault(24),
-  PASSWORD_RESET_TTL_HOURS: numericDefault(1),
+  PASSWORD_RESET_TTL_HOURS: numericDefault(1), // Вот тут Dokku больше не сможет все сломать
   WORKER_CONCURRENCY: numericDefault(5),
 });
 
 // Валидация
 const validatedEnv = envSchema.parse(process.env);
-
-// Ручные проверки на <= 0 больше не нужны! Zod (.positive()) сделает это сам на этапе parse.
 
 function parseAllowedOrigins(raw) {
   const origins = raw
